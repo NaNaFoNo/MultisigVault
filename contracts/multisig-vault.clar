@@ -69,3 +69,7 @@
 		(ok total-votes)
 	)
 )
+
+(define-public (deposit (amount uint))
+	(stx-transfer? amount tx-sender (as-contract tx-sender))
+)
