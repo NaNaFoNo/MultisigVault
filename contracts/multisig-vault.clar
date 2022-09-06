@@ -57,3 +57,15 @@
 		(ok (map-set votes {member: tx-sender, recipient: recipient} {decision: decision}))
 	)
 )
+
+(define-public (withdraw)
+	(let
+		(
+			(recipient tx-sender)
+			(total-votes (tally-votes))
+		)
+		(asserts! (>= total-votes (var-get votes-required)) err-votes-required-not-met)
+		(try! (as-contract (stx-transfer? (stx-get-balance tx-sender) tx-sender recipient)))
+		(ok total-votes)
+	)
+)
