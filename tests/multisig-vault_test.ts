@@ -134,3 +134,35 @@ Clarinet.test({
         block.receipts[1].result.expectErr().expectUint(104);
     }
 });
+
+// Withdrawal
+Clarinet.test({
+    name: "Principal that meets the vote threshold can withdraw the vault balance",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const { contractPrincipal, memberAccounts } = initContract({ chain, accounts });
+        const recipient = memberAccounts.shift()!;
+        const votes = memberAccounts.map(account => Tx.contractCall(contractName, 'vote', [types.principal(recipient.address), types.bool(true)], account.address));
+        chain.mineBlock(votes);
+        const block = chain.mineBlock([
+            Tx.contractCall(contractName, 'withdraw', [], recipient.address)
+        ]);
+        block.receipts[0].result.expectOk().expectUint(votes.length);
+        block.receipts[0].events.expectSTXTransferEvent(defaultStxVaultAmount, contractPrincipal, recipient.address);
+    }
+});
+ 
+Clarinet.test({
+    name: "Principals that do not meet the vote threshold cannot withdraw the vault balance",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const { memberAccounts, nonMemberAccounts } = initContract({ chain, accounts });
+        const recipient = memberAccounts.shift()!;
+        const [nonMemberA] = nonMemberAccounts;
+        const votes = memberAccounts.slice(0, defaultVotesRequired - 1).map(account => Tx.contractCall(contractName, 'vote', [types.principal(recipient.address), types.bool(true)], account.address));
+        chain.mineBlock(votes);
+        const block = chain.mineBlock([
+            Tx.contractCall(contractName, 'withdraw', [], recipient.address),
+            Tx.contractCall(contractName, 'withdraw', [], nonMemberA.address)
+        ]);
+        block.receipts.map(receipt => receipt.result.expectErr().expectUint(104));
+    }
+});
