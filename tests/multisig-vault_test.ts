@@ -116,3 +116,21 @@ Clarinet.test({
         receipt.result.expectBool(true);
     }
 });
+
+Clarinet.test({
+    name: "Members can change votes at-will, thus making an eligible recipient uneligible again",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const { memberAccounts } = initContract({ chain, accounts });
+        const recipient = memberAccounts.shift()!;
+        const votes = memberAccounts.map(account => Tx.contractCall(contractName, 'vote', [types.principal(recipient.address), types.bool(true)], account.address));
+        chain.mineBlock(votes);
+        const receipt = chain.callReadOnlyFn(contractName, 'tally-votes', [], recipient.address);
+        receipt.result.expectUint(votes.length);
+        const block = chain.mineBlock([
+            Tx.contractCall(contractName, 'vote', [types.principal(recipient.address), types.bool(false)], memberAccounts[0].address),
+            Tx.contractCall(contractName, 'withdraw', [], recipient.address),
+        ]);
+        block.receipts[0].result.expectOk().expectBool(true);
+        block.receipts[1].result.expectErr().expectUint(104);
+    }
+});
